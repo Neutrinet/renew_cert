@@ -62,5 +62,15 @@ def from_cube():
         sys.exit(1)
 
 
+    restart_command = "service openvpn restart"
+    print("Critical part 2: restart openvpn '%s'" % restart_command)
+    try:
+        subprocess.check_output(restart_command.split())
+    except Exception:
+        print("ERROR: command failed, displaying logs")
+        print("\n".join(open("/var/log/openvpn.log", "r").split("\n")[-200:]))
+        sys.exit(1)
+
+
 if __name__ == '__main__':
     from_cube()

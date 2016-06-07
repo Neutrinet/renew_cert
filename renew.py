@@ -28,7 +28,7 @@ def renew(login, password):
 
     client = response.json()[0]
 
-    openssl = pexpect.spawn("openssl req -out CSR.csr -new -newkey rsa:4096 -nodes -keyout client.key", cwd=working_dir, timeout=30)
+    openssl = pexpect.spawn("openssl req -out CSR.csr -new -newkey rsa:4096 -nodes -keyout client.key", cwd=working_dir, timeout=120)
 
     openssl.expect("Country Name \(2 letter code\) \[AU\]:")
     openssl.sendline(".")

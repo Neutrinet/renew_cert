@@ -64,6 +64,7 @@ def from_cube():
     print("Critical part 2: restart openvpn '%s'" % restart_command)
     try:
         subprocess.check_output(restart_command.split())
+        time.sleep(15)
     except Exception:
         print("ERROR: command failed, displaying logs")
         print("\n".join(open("/var/log/openvpn.log", "r").split("\n")[-200:]))

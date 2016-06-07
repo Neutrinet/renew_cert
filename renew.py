@@ -1,14 +1,19 @@
+import os
 import json
 import pexpect
 import zipfile
 import requests
 
 from StringIO import StringIO
+from datetime import datetime
 
 from debug_context_manager import debug
 
 
 def renew(login, password):
+    working_dir = "certs_%s" % datetime.today().strftime("%F_%X")
+    os.makedirs(working_dir)
+
     s = requests.Session()
 
     with debug("Login"):
@@ -23,7 +28,7 @@ def renew(login, password):
 
     client = response.json()[0]
 
-    openssl = pexpect.spawn("openssl req -out CSR.csr -new -newkey rsa:4096 -nodes -keyout client.key", cwd=".", timeout=5)
+    openssl = pexpect.spawn("openssl req -out CSR.csr -new -newkey rsa:4096 -nodes -keyout client.key", cwd=working_dir, timeout=5)
 
     openssl.expect("Country Name \(2 letter code\) \[AU\]:")
     openssl.sendline(".")
@@ -69,4 +74,6 @@ def renew(login, password):
         assert response.status_code == 200, response.content
 
     with debug("Extract config from zipfile"):
-        zipfile.ZipFile(StringIO(response.content)).extractall(".")
+        zipfile.ZipFile(StringIO(response.content)).extractall(working_dir)
+
+    return working_dir

@@ -7,9 +7,9 @@ from debug_context_manager import debug
 
 def from_cube():
     if os.path.exists("/etc/openvpn/keys/credentials"):
-        login, password = [x.strip() for x in open("/etc/openvpn/keys/credentials", "r").read().split("\n")]
+        login, password = [x.strip() for x in open("/etc/openvpn/keys/credentials", "r").read().split("\n") if x.strip()]
     elif os.path.exists("/etc/openvpn/auth"):
-        login, password = [x.strip() for x in open("/etc/openvpn/auth", "r").read().split("\n")]
+        login, password = [x.strip() for x in open("/etc/openvpn/auth", "r").read().split("\n") if x.strip()]
     else:
         print("Error: I can't find your credentials for neutrinet since neither /etc/openvpn/keys/credentials nor /etc/openvpn/auth exists on your filesystem")
         sys.exit(1)

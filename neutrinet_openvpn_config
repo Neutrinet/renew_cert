@@ -28,7 +28,6 @@ resolv-retry infinite
 
 # TLS
 tls-client
-<TPL:TA_COMMENT>tls-auth /etc/openvpn/keys/user_ta.key 1
 remote-cert-tls server
 ns-cert-type server
 ca /etc/openvpn/keys/ca-server.crt

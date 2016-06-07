@@ -52,7 +52,7 @@ def from_cube():
     with debug("Critical part: reloading vpn using '%s'" % command):
         if os.system(command) != 0:
             print("ERROR: command failed, displaying logs")
-            os.system("cat /var/log/openvpn-client.log")
+            os.system("tail -n 200 /var/log/openvpn-client.log")
             sys.exit(1)
 
 

@@ -3,11 +3,27 @@ import json
 import pexpect
 import zipfile
 import requests
+import time
 
 from StringIO import StringIO
 from datetime import datetime
+from contextlib import contextmanager
 
 from debug_context_manager import debug
+
+
+@contextmanager
+def retry():
+    for i in range(3):
+        try:
+            yield
+            return
+        except Exception as e:
+            print("Warning: exception '%s' occured, retrying" % e)
+            time.sleep(10)
+
+    print "After 3 retry, still failing :("
+    raise e
 
 
 def renew(login, password):
@@ -17,13 +33,15 @@ def renew(login, password):
     s = requests.Session()
 
     with debug("Login"):
-        response = s.post("https://api.neutrinet.be/api/user/login", data=json.dumps({"user": login, "password": password}))
+        with retry():
+            response = s.post("https://api.neutrinet.be/api/user/login", data=json.dumps({"user": login, "password": password}))
         assert response.status_code == 200, response.content
 
     session_data = response.json()
 
     with debug("Get client data"):
-        response = s.get('https://api.neutrinet.be/api/client/all?compose=true&user=%s' % session_data["user"], headers={"Session": session_data["token"]})
+        with retry():
+            response = s.get('https://api.neutrinet.be/api/client/all?compose=true&user=%s' % session_data["user"], headers={"Session": session_data["token"]})
         assert response.status_code == 200, response.content
 
     client = response.json()[0]
@@ -53,7 +71,8 @@ def renew(login, password):
         openssl.interact()
 
     with debug("See if I already have a cert"):
-        response = s.get("https://api.neutrinet.be/api/client/%s/cert/all?active=true" % client["id"], headers={"Session": session_data["token"]})
+        with retry():
+            response = s.get("https://api.neutrinet.be/api/client/%s/cert/all?active=true" % client["id"], headers={"Session": session_data["token"]})
         assert response.status_code == 200, response.content
 
     cert = response.json()[0] if response.json() else None
@@ -61,16 +80,19 @@ def renew(login, password):
     if not cert:
         print("I don't have any cert, let's add a new one")
         with debug("Put new cert online"):
-            response = s.put("https://api.neutrinet.be/api/client/%s/cert/new?rekey=false&validityTerm=1" % client["id"], headers={"Session": session_data["token"]}, data=open(os.path.join(working_dir, "CSR.csr"), "r").read())
+            with retry():
+                response = s.put("https://api.neutrinet.be/api/client/%s/cert/new?rekey=false&validityTerm=1" % client["id"], headers={"Session": session_data["token"]}, data=open(os.path.join(working_dir, "CSR.csr"), "r").read())
             assert response.status_code == 200, response.content
             cert = response.json()
     else:
         print("I already have a cert, let's update it")
         with debug("Put new cert online"):
-            response = s.put("https://api.neutrinet.be/api/client/%s/cert/%s?rekey=true&validityTerm=1" % (client["id"], cert["id"]), headers={"Session": session_data["token"]}, data=open(os.path.join(working_dir, "CSR.csr"), "r").read())
+            with retry():
+                response = s.put("https://api.neutrinet.be/api/client/%s/cert/%s?rekey=true&validityTerm=1" % (client["id"], cert["id"]), headers={"Session": session_data["token"]}, data=open(os.path.join(working_dir, "CSR.csr"), "r").read())
 
     with debug("Download new config"):
-        response = s.post("https://api.neutrinet.be/api/client/%s/config" % client["id"], headers={"Session": session_data["token"]}, data=json.dumps({"platform":"linux"}))
+        with retry():
+            response = s.post("https://api.neutrinet.be/api/client/%s/config" % client["id"], headers={"Session": session_data["token"]}, data=json.dumps({"platform":"linux"}))
         assert response.status_code == 200, response.content
 
     with debug("Extract config from zipfile"):

@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import shutil
 from renew import renew
 
@@ -47,10 +48,13 @@ def from_cube():
     for command in commands:
         with debug("Running command '%s'" % command.replace(password, "xxxxxxxxxxxxxxxxxxxxx")):
             assert os.system(command) == 0, "ERROR: command failed"
+            time.sleep(5)
 
     command = "systemctl restart ynh-vpnclient"
     print("Critical part: reloading vpn using '%s'" % command)
+    time.sleep(5)
     if os.system(command) != 0:
+        time.sleep(5)
         print("ERROR: command failed, displaying logs")
         os.system("tail -n 200 /var/log/openvpn-client.log")
         sys.exit(1)

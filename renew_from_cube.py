@@ -50,6 +50,8 @@ def from_cube():
         with debug("Running command '%s'" % command.replace(password, "xxxxxxxxxxxxxxxxxxxxx")):
             assert os.system(command) == 0, "ERROR: command failed"
 
+    sys.stdout.flush()
+
     print("Critical part: reloading vpn using '%s'" % command)
     try:
         subprocess.check_output("sudo systemctl restart ynh-vpnclient".split())

@@ -54,7 +54,7 @@ def from_cube():
 
     print("Critical part: reloading vpn using '%s'" % command)
     try:
-        subprocess.check_output("sudo systemctl restart ynh-vpnclient".split())
+        subprocess.check_output("/usr/local/bin/ynh-vpnclient restart".split())
     except Exception:
         # print("ERROR: command failed, displaying logs")
         # print("\n".join(open("/var/log/openvpn.log", "r").split("\n")[-200:]))

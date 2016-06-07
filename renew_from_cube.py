@@ -71,5 +71,16 @@ def from_cube():
         sys.exit(1)
 
 
+    if os.path.exists("/usr/local/bin/ynh-vpnclient"):
+        print("Few, we're done, let's wait 2min to be sure that vpn is running, then restart hotspot")
+        time.sleep(60*2)
+        print("Restarting hotspot")
+        try:
+            subprocess.check_output("/usr/local/bin/ynh-vpnclient restart".split())
+        except Exception as e:
+            print "ERROR: failed to restart hotspot: %s" % e
+            print "since this is non totally critical, let's continue"
+
+
 if __name__ == '__main__':
     from_cube()

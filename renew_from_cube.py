@@ -42,7 +42,6 @@ def from_cube():
         'yunohost app setting vpnclient service_enabled -v "1"',
         'yunohost app setting vpnclient login_user -v "%s"' % login,
         'yunohost app setting vpnclient login_passphrase -v "%s"' % password,
-        'yunohost service add ynh-vpnclient -l /var/log/openvpn-client.log',
     ]
 
     for command in commands:

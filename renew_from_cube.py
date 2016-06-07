@@ -47,11 +47,11 @@ def from_cube():
 
     for command in commands:
         with debug("Running command '%s'" % command.replace(password, "xxxxxxxxxxxxxxxxxxxxx")):
-            assert os.systemd(command) == 0, "ERROR: command failed"
+            assert os.system(command) == 0, "ERROR: command failed"
 
     command = "systemctl restart ynh-vpnclient"
     with debug("Critical part: reloading vpn using '%s'" % command):
-        if os.systemd(command) != 0:
+        if os.system(command) != 0:
             print("ERROR: command failed, displaying logs")
             os.system("cat /var/log/openvpn-client.log")
             sys.exit(1)

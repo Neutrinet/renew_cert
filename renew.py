@@ -1,4 +1,3 @@
-import sys
 import json
 import pexpect
 import zipfile
@@ -9,9 +8,7 @@ from debug_context_manager import debug
 from StringIO import StringIO
 
 
-if __name__ == '__main__':
-    login, password = sys.argv[1:]
-
+def renew(login, password):
     s = requests.Session()
 
     with debug("Login"):

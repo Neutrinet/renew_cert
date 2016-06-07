@@ -57,8 +57,6 @@ def from_cube():
     try:
         subprocess.check_output(restart_command.split())
     except Exception:
-        # print("ERROR: command failed, displaying logs")
-        # print("\n".join(open("/var/log/openvpn.log", "r").split("\n")[-200:]))
         sys.exit(1)
 
 

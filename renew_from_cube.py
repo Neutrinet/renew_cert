@@ -18,15 +18,14 @@ def from_cube():
 
     run_id = result_dir.split("_", 1)[1]
 
-    os.makedirs("/etc/openvpn/keys")
-
     with debug("Saving old openvpn config"):
         shutil.copytree("/etc/openvpn/", "/etc/openvpn.old_%s" % run_id)
 
     with debug("copying new config"):
         shutil.copy("neutrinet_openvpn_config", "/etc/openvpn/client.conf.tpl")
 
-    os.makedirs("/etc/openvpn/keys")
+    if not os.path.exists("/etc/openvpn/keys"):
+        os.makedirs("/etc/openvpn/keys")
 
     with debug("Copying new cert"):
         shutil.copy(os.path.join(result_dir, "ca.crt"), "/etc/openvpn/keys/ca-server.crt")

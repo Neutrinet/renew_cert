@@ -49,11 +49,11 @@ def from_cube():
             assert os.system(command) == 0, "ERROR: command failed"
 
     command = "systemctl restart ynh-vpnclient"
-    with debug("Critical part: reloading vpn using '%s'" % command):
-        if os.system(command) != 0:
-            print("ERROR: command failed, displaying logs")
-            os.system("tail -n 200 /var/log/openvpn-client.log")
-            sys.exit(1)
+    print("Critical part: reloading vpn using '%s'" % command)
+    if os.system(command) != 0:
+        print("ERROR: command failed, displaying logs")
+        os.system("tail -n 200 /var/log/openvpn-client.log")
+        sys.exit(1)
 
 
 if __name__ == '__main__':

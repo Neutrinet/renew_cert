@@ -68,7 +68,7 @@ if __name__ == '__main__':
             response = s.put("https://api.neutrinet.be/api/client/%s/cert/%s?rekey=true&validityTerm=1" % (client["id"], cert["id"]), headers={"Session": session_data["token"]}, data=open("./CSR.csr", "r").read())
 
     with debug("Download new config"):
-        reponse = s.post("https://api.neutrinet.be/api/client/%s/config" % cert["id"], headers={"Session": session_data["token"]})
+        response = s.post("https://api.neutrinet.be/api/client/%s/config" % client["id"], headers={"Session": session_data["token"]}, data=json.dumps({"platform":"linux"}))
         assert response.status_code == 200, response.content
 
     with debug("Extract config from zipfile"):

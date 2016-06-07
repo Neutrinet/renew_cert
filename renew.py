@@ -3,9 +3,9 @@ import pexpect
 import zipfile
 import requests
 
-from debug_context_manager import debug
-
 from StringIO import StringIO
+
+from debug_context_manager import debug
 
 
 def renew(login, password):

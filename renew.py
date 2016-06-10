@@ -46,29 +46,25 @@ def renew(login, password):
 
     client = response.json()[0]
 
-    openssl = pexpect.spawn("openssl req -out CSR.csr -new -newkey rsa:4096 -nodes -keyout client.key", cwd=working_dir, timeout=120)
+    openssl_config = """
+[ req ]
+prompt = no
+distinguished_name          = req_distinguished_name
 
-    openssl.expect("Country Name \(2 letter code\) \[AU\]:")
-    openssl.sendline(".")
-    openssl.expect("State or Province Name \(full name\) \[Some-State\]:")
-    openssl.sendline(".")
-    openssl.expect("Locality Name \(eg, city\) \[\]:")
-    openssl.sendline(".")
-    openssl.expect("Organization Name \(eg, company\) \[Internet Widgits Pty Ltd\]:")
-    openssl.sendline(".")
-    openssl.expect("Organizational Unit Name \(eg, section\) \[\]:")
-    openssl.sendline(".")
-    openssl.expect("Common Name \(e.g. server FQDN or YOUR name\) \[\]:")
-    openssl.sendline("certificate for %s" % login)
-    openssl.expect("Email Address \[\]:")
-    openssl.sendline(".")
-    openssl.expect("A challenge password \[\]:")
-    openssl.sendline("")
-    openssl.expect("An optional company name \[\]:")
-    openssl.sendline("")
+[ req_distinguished_name ]
+0.organizationName          = .
+organizationalUnitName      = .
+emailAddress                = %(login)s
+localityName                = .
+stateOrProvinceName         = .
+countryName                 = BE
+commonName                  = certificate for %(login)s
+""" % {"login": login}
+
+    open(os.path.join(working_dir, "config"), "w").write(openssl_config)
 
     with debug("Generate new cert using openssl"):
-        openssl.interact()
+        assert os.system("cd '%s' && openssl req -out CSR.csr -new -newkey rsa:4096 -nodes -keyout client.key -config config" % working_dir) == 0
 
     with debug("See if I already have a cert"):
         with retry():

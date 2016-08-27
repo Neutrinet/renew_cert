@@ -1,6 +1,5 @@
 import os
 import json
-import pexpect
 import zipfile
 import requests
 import time

@@ -4,6 +4,8 @@ This repository store 2 python scripts to renew your Neutrinet VPN certificate.
 One as to be runned on an Internet Cube that has vpnclient installed, the other
 one is to be runned in a standalone fashion.
 
+**Remark**: this repository is used by the [neutrinet_ynh](https://github.com/Neutrinet/neutrinet_ynh) app, so don't rename/delete it unless you know what you are doing.
+
 # Usage
 
 ## Standalone version

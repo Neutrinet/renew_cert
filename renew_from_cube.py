@@ -19,7 +19,7 @@ def from_cube():
         print("Error: I can't find your credentials for neutrinet since neither /etc/openvpn/keys/credentials nor /etc/openvpn/auth exists on your filesystem")
         sys.exit(1)
 
-    in_cron = (sys.argv[1:] and sys.argv[:1][0] == "--cron")
+    in_cron = (sys.argv[1:] and sys.argv[1:][0] == "--cron")
     if in_cron and os.path.exists(CRT_PATH):
         expiration_date = subprocess.check_output('openssl x509 -in %s -noout -enddate | sed -e "s/.*=//"' % CRT_PATH, shell=True).strip()
         expiration_date = datetime.strptime(expiration_date, "%b %d %H:%M:%S %Y GMT")

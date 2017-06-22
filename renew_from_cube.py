@@ -3,9 +3,12 @@ import sys
 import time
 import shutil
 import subprocess
+from datetime import datetime
 from renew import renew
 
 from debug_context_manager import debug
+
+CRT_PATH = "/etc/openvpn/keys/user.crt"
 
 def from_cube():
     if os.path.exists("/etc/openvpn/keys/credentials"):
@@ -15,6 +18,16 @@ def from_cube():
     else:
         print("Error: I can't find your credentials for neutrinet since neither /etc/openvpn/keys/credentials nor /etc/openvpn/auth exists on your filesystem")
         sys.exit(1)
+
+    in_cron = (sys.argv[1:] and sys.argv[:1][0] == "--cron")
+    if in_cron and os.path.exists(CRT_PATH):
+        expiration_date = subprocess.check_output('openssl x509 -in %s -noout -enddate | sed -e "s/.*=//"' % CRT_PATH, shell=True).strip()
+        expiration_date = datetime.strptime(expiration_date, "%b %d %H:%M:%S %Y GMT")
+        delta = (expiration_date - datetime.now())
+
+        # only renew if cert expire in less than 4 months
+        if delta.days > (31 * 4):
+            sys.exit(0)
 
     result_dir = renew(login, password)
 

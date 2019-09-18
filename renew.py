@@ -62,7 +62,7 @@ def renew(login, password, client_cert_filename = None, log_level=logging.INFO):
         response.raise_for_status()
         client = response.json()[0]
         
-        if os.path.isfile(client_cert_filename):
+        if client_cert_filename and os.path.isfile(client_cert_filename):
             logging.debug("Checking expiration date for {}".format(client_cert_filename))
             with open(client_cert_filename, 'r') as ifd:
                 client_cert = ifd.read()
@@ -83,7 +83,7 @@ def renew(login, password, client_cert_filename = None, log_level=logging.INFO):
         logging.debug("Checking if a certificate is already present")
         response = session.get("https://api.neutrinet.be/api/client/{id}/cert/all".format(id=client["id"]), 
             headers=session_header,
-            params={ "active" : True })
+            params={ "active" : "true" })
         response.raise_for_status()
         cert = response.json()[0] if response.json() else None
         
@@ -93,7 +93,7 @@ def renew(login, password, client_cert_filename = None, log_level=logging.INFO):
             response = session.put("https://api.neutrinet.be/api/client/{id}/cert/new".format(id=client["id"]),
                 headers=session_header, 
                 data=csr,
-                params={ "rekey": False, "validityTerm": True })
+                params={ "rekey": "false", "validityTerm": 1 })
             response.raise_for_status()
             cert = response.json()
         else:
@@ -102,7 +102,7 @@ def renew(login, password, client_cert_filename = None, log_level=logging.INFO):
             response = session.put("https://api.neutrinet.be/api/client/{client[id]}/cert/{cert[id]}".format(client=client, cert=cert),
                 headers=session_header,
                 data=csr,
-                params={ "rekey": True, "validityTerm": True })
+                params={ "rekey": "true", "validityTerm": 1 })
             response.raise_for_status()
 
         logging.debug("Downloading new config")
@@ -128,7 +128,7 @@ def create_csr(email):
     key = crypto.PKey()
     key.generate_key(crypto.TYPE_RSA, 4096)
     
-    scr = crypto.X509Req()
+    req = crypto.X509Req()
     req_subject = req.get_subject()
     
     req_subject.C = "BE"

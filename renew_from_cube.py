@@ -8,73 +8,73 @@ from renew import renew
 
 from debug_context_manager import debug
 
-CRT_PATH = "/etc/openvpn/keys/user.crt"
+OPENVPN_CONF_DIR = "/etc/openvpn"
+OPENVPN_KEYS_DIR = os.path.join(OPENVPN_CONF_DIR, "keys")
+OPENVPN_CREDENTIALS_FILE = os.path.join(OPENVPN_KEYS_DIR, "credentials")
+OPENVPN_AUTH_FILE = os.path.join(OPENVPN_KEYS_DIR, "auth")
+OPENVPN_USER_CERT = os.path.join(OPENVPN_KEYS_DIR, "user.crt")
+OPENVPN_USER_KEY = os.path.join(OPENVPN_KEYS_DIR, "user.key")
+OPENVPN_SERVER_CERT = os.path.join(OPENVPN_KEYS_DIR, "ca-server.crt")
 
 def from_cube():
-    if os.path.exists("/etc/openvpn/keys/credentials"):
-        login, password = [x.strip() for x in open("/etc/openvpn/keys/credentials", "r").read().split("\n") if x.strip()]
-    elif os.path.exists("/etc/openvpn/auth"):
-        login, password = [x.strip() for x in open("/etc/openvpn/auth", "r").read().split("\n") if x.strip()]
+    if os.path.isfile(OPENVPN_CREDENTIALS_FILE):
+        with open(OPENVPN_CREDENTIALS_FILE, "r") as ifd:
+            login, password = [ x.strip() for x in ifd ]
+        
+    elif os.path.isfile(OPENVPN_AUTH_FILE):
+        with open(OPENVPN_AUTH_FILE, "r") as ifd:
+            login, password = [ x.strip() for x in ifd ]
     else:
-        print("Error: I can't find your credentials for neutrinet since neither /etc/openvpn/keys/credentials nor /etc/openvpn/auth exists on your filesystem")
+        print("Error: Cannot find your credentials for neutrinet since neither {credentials} nor {auth} exists on your filesystem".format(credentials=OPENVPN_CREDENTIALS_FILE, auth=OPENVPN_AUTH_FILE)
         sys.exit(1)
 
-    in_cron = (sys.argv[1:] and sys.argv[1:][0] == "--cron")
-    if in_cron and os.path.exists(CRT_PATH):
-        expiration_date = subprocess.check_output('openssl x509 -in %s -noout -enddate | sed -e "s/.*=//"' % CRT_PATH, shell=True).strip()
-        expiration_date = datetime.strptime(expiration_date, "%b %d %H:%M:%S %Y GMT")
-        delta = (expiration_date - datetime.now())
+    renew_dir = renew(login, password, OPENVPN_USER_CERT)
 
-        # only renew if cert expire in less than 4 months
-        if delta.days > (31 * 4):
-            sys.exit(0)
+    _, run_id = renew_dir.split("_", 1)
 
-    result_dir = renew(login, password)
+    with debug("Saving old OpenVPN config"):
+        shutil.copytree(OPENVPN_CONF_DIR, OPENVPN_CONF_DIR + ".old_{}".format(run_id))
 
-    run_id = result_dir.split("_", 1)[1]
+    with debug("Copying new config"):
+        shutil.copy("neutrinet_openvpn_config", os.path.join(OPENVPN_CONF_DIR, "client.conf.tpl")
 
-    with debug("Saving old openvpn config"):
-        shutil.copytree("/etc/openvpn/", "/etc/openvpn.old_%s" % run_id)
-
-    with debug("copying new config"):
-        shutil.copy("neutrinet_openvpn_config", "/etc/openvpn/client.conf.tpl")
-
-    if not os.path.exists("/etc/openvpn/keys"):
-        os.makedirs("/etc/openvpn/keys")
+    if not os.path.exists(OPENVPN_KEYS_DIR):
+        os.makedirs(OPENVPN_KEYS_DIR)
 
     with debug("Copying new cert"):
-        shutil.copy(os.path.join(result_dir, "ca.crt"), "/etc/openvpn/keys/ca-server.crt")
-        shutil.copy(os.path.join(result_dir, "client.crt"), "/etc/openvpn/keys/user.crt")
-        shutil.copy(os.path.join(result_dir, "client.key"), "/etc/openvpn/keys/user.key")
+        shutil.copy(os.path.join(renew_dir, "ca.crt"), OPENVPN_SERVER_CERT)
+        shutil.copy(os.path.join(renew_dir, "client.crt"), OPENVPN_USER_CERT)
+        shutil.copy(os.path.join(renew_dir, "client.key"), OPENVPN_USER_KEY)
 
     with debug("Adding user credentials"):
-        open("/etc/openvpn/keys/credentials", "w").write("%s\n%s\n" % (login, password))
+        with open(OPENVPN_CREDENTIALS_FILE, "w") as ofd:
+            ofd.write("{}\n{}\n".format(login, password))
 
     commands = [
         'yunohost app setting vpnclient server_name -v "vpn.neutrinet.be"',
         'yunohost app setting vpnclient server_port -v "1195"',
         'yunohost app setting vpnclient server_proto -v "udp"',
         'yunohost app setting vpnclient service_enabled -v "1"',
-        'yunohost app setting vpnclient login_user -v "%s"' % login,
-        'yunohost app setting vpnclient login_passphrase -v "%s"' % password,
+        'yunohost app setting vpnclient login_user -v "{}"'.format(login),
+        'yunohost app setting vpnclient login_passphrase -v "{}"'.format(password),
     ]
 
     for command in commands:
-        with debug("Running command '%s'" % command.replace(password, "xxxxxxxxxxxxxxxxxxxxx")):
+        with debug("Running command '{}'".format(command.replace(password, "xxxxxxxxxxxxxxxxxxxxx"))):
             assert os.system(command) == 0, "ERROR: command failed"
 
     sys.stdout.flush()
 
     restart_command = "/usr/local/bin/ynh-vpnclient restart"
-    print("Critical part: reloading vpnclient using '%s'" % restart_command)
+    print("Critical part 1: reloading vpnclient using '{}'".format(restart_command))
+    
     try:
         subprocess.check_output(restart_command.split())
     except Exception:
         sys.exit(1)
 
-
     restart_command = "service openvpn restart"
-    print("Critical part 2: restart openvpn '%s'" % restart_command)
+    print("Critical part 2: restart openvpn '{}'".format(restart_command))
     try:
         subprocess.check_output(restart_command.split())
         time.sleep(15)
@@ -91,8 +91,8 @@ def from_cube():
         try:
             subprocess.check_output("/usr/local/bin/ynh-vpnclient restart".split())
         except Exception as e:
-            print "ERROR: failed to restart hotspot: %s" % e
-            print "since this is non totally critical, let's continue"
+            print("ERROR: failed to restart hotspot: {}".format(e))
+            print("since this is non totally critical, let's continue")
 
 
 if __name__ == '__main__':

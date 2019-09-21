@@ -5,7 +5,7 @@ This repository stores a python3 script to renew your Neutrinet VPN certificate.
 You can run this script from your own computer.
 
 You can also run this script from your internet cube.
-Note that there is a [Yunohost app](https://github.com/Neutrinet/neutrinet_ynh) just for that. 
+Note that there is a [Yunohost app called Neutrinet](https://github.com/Neutrinet/neutrinet_ynh) just for that. 
 It will setup a daily cron task that will automatically renew your certificate when needed. 
 **Warning**: As it is used by the Yunohost app, do NOT rename or delete the script unless you know what you are doing.
 

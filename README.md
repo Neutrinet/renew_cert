@@ -6,7 +6,8 @@ You can run this script from your own computer.
 
 You can also run this script from your internet cube.
 Note that there is a [Yunohost app called Neutrinet](https://github.com/Neutrinet/neutrinet_ynh) just for that. 
-It will setup a daily cron task that will automatically renew your certificate when needed. 
+It will setup a daily cron task that will automatically renew your certificate when needed.
+
 **Warning**: As it is used by the Yunohost app, do NOT rename or delete the script unless you know what you are doing.
 
 ## Installation
@@ -26,19 +27,21 @@ python3 renew.py <login>
 ```
 
 This will prompt you to enter your password for the Neutrinet's VPN.
-Then, the script will generate the certificate files generate in a folder named like that:  
+The script will then generate the certificate files in a folder named like that:  
 ```
 certs_2016-06-07_13:51:08
 ```
-(where the date and time correspond to the moment at which you ran the script).
+where the date and time correspond to the moment at which you ran the script.
 
-You can also provide the password directly with:
+**Important**: This folder will contain your private key, so be carefull when storing it!
+
+You can also choose to directly provide the password with:
 ```bash
 python3 renew.py <login> -p <password>
 ```
 
 Finally, you can provide the public part of your certificate.
-The script will check the expiration date before trying to update it:
+The script will then check the expiration date before trying to renew it:
 ```bash
 python3 renew.py <login> <path/to/client.crt>
 ```

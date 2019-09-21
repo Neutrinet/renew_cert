@@ -146,12 +146,11 @@ def create_csr(email):
 def main():
     import argparse
     
-    parser = argparse.ArgumentParser()
-    
-    parser.add_argument("login")
-    parser.add_argument("-p", "--password")
-    parser.add_argument("-d", "--debug", action="store_true")
-    parser.add_argument("-c", "--cert")
+    parser = argparse.ArgumentParser(description="Renew certificates for the Neutrinet VPN.")
+    parser.add_argument("login", help="User login for the Neutrinet VPN")
+    parser.add_argument("-p", "--password", help="User password for the Neutrinet VPN")
+    parser.add_argument("-d", "--debug", action="store_true", help="Print debug messages.")
+    parser.add_argument("-c", "--cert", help="Public part of the client certificate. This forces the script to check if the certificate is expired before renewing it")
     
     args = parser.parse_args()
     

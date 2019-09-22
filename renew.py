@@ -40,12 +40,22 @@ def retry_session(
     
     return session
 
-def renew(login, password, client_cert_filename = None, log_level=logging.INFO):
+def renew(login, password, client_cert_filename=None, working_dir=None, log_level=logging.INFO):
     logging.basicConfig(stream=sys.stdout, level=log_level, format="%(levelname)s:%(message)s")
     
-    working_dir = "certs_{:%F_%X}".format(datetime.today())
+    if client_cert_filename and os.path.isfile(client_cert_filename):
+        logging.debug("Checking expiration date for {}".format(client_cert_filename))
+        with open(client_cert_filename, 'r') as ifd:
+            client_cert = ifd.read()
+        
+        if not check_expiration_date(client_cert):
+            logging.info("The certificate doesn't need to be renewed. Leaving...")
+            return
+    
+    if not working_dir:
+        working_dir = "certs_{:%Y-%m-%d_%H:%M:%S}".format(datetime.today())
     os.makedirs(working_dir)
-
+    
     with retry_session() as session:
         logging.debug("Sending client's credentials")
         response = session.post("https://api.neutrinet.be/api/user/login", 
@@ -62,14 +72,6 @@ def renew(login, password, client_cert_filename = None, log_level=logging.INFO):
         response.raise_for_status()
         client = response.json()[0]
         
-        if client_cert_filename and os.path.isfile(client_cert_filename):
-            logging.debug("Checking expiration date for {}".format(client_cert_filename))
-            with open(client_cert_filename, 'r') as ifd:
-                client_cert = ifd.read()
-            
-            if not check_expiration_date(client_cert):
-                logging.info("The certificate doesn't need to be renewed. Leaving...")
-                return
         
         logging.debug("Generating new certificate using OpenSSL")
         csr, client_key = create_csr(login)
@@ -147,22 +149,30 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description="Renew certificates for the Neutrinet VPN.")
-    parser.add_argument("login", help="User login for the Neutrinet VPN")
-    parser.add_argument("-p", "--password", help="User password for the Neutrinet VPN")
-    parser.add_argument("-d", "--debug", action="store_true", help="Print debug messages.")
-    parser.add_argument("-c", "--cert", help="Public part of the client certificate. This forces the script to check if the certificate is expired before renewing it")
-    
+    parser.add_argument("login",
+        help="User login for the Neutrinet VPN.")
+    parser.add_argument("-p", "--password",
+        help="User password for the Neutrinet VPN.")
+    parser.add_argument("-v", "--verbose", action="store_true",
+        help="Increase verbosity and display debug messages.")
+    parser.add_argument("-c", "--cert",
+        help="Public part of the client certificate. \
+        This forces the script to check if the certificate is expired before renewing it.")
+    parser.add_argument("-d", "--directory",
+        help="Output directory where to store the newly generated certificates. \
+        By default, everything is stored in a randomly generated directory.")
     args = parser.parse_args()
     
     if not args.password:
         args.password = getpass()
     
-    if args.debug:
+    if args.verbose:
         log_level = logging.DEBUG
     else:
         log_level = logging.INFO
     
-    renew(args.login, args.password, client_cert_filename=args.cert, log_level=log_level)
+    renew(args.login, args.password, client_cert_filename=args.cert, 
+        working_dir=args.directory, log_level=log_level)
 
 if __name__ == "__main__":
     main()

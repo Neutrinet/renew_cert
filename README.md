@@ -27,15 +27,21 @@ python3 renew.py <login>
 ```
 
 This will prompt you to enter your password for the Neutrinet's VPN.
+
 The script will then generate the certificate files in a folder named like that:  
 ```
 certs_2016-06-07_13:51:08
 ```
 where the date and time correspond to the moment at which you ran the script.
 
-**Important**: This folder will contain your private key, so be carefull when storing it!
+You can also provide the folder with:
+```
+python3 renew.py <login> -d <path/to/your/certs>
+```
 
-You can also choose to directly provide the password with:
+**Important**: This folder will contain your private key, so be careful when storing it!
+
+You can choose to directly provide the password with:
 ```bash
 python3 renew.py <login> -p <password>
 ```
@@ -43,12 +49,12 @@ python3 renew.py <login> -p <password>
 Finally, you can provide the public part of your certificate.
 The script will then check the expiration date before trying to renew it:
 ```bash
-python3 renew.py <login> <path/to/client.crt>
+python3 renew.py <login> -c <path/to/client.crt>
 ```
 
-### Debugging
+## Debugging
 
-You can enter debug mode with:
+You can display debug messages with:
 ```bash
-python3 renew.py <login> -d
+python3 renew.py <login> -v
 ```

@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
 from datetime import datetime
-from getpass import getpass
 import io
 import json
 import logging
@@ -147,6 +146,7 @@ def create_csr(email):
 
 def main():
     import argparse
+    from getpass import getpass
     
     parser = argparse.ArgumentParser(description="Renew certificates for the Neutrinet VPN.")
     parser.add_argument("login",

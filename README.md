@@ -10,12 +10,21 @@ It will setup a daily cron task that will automatically renew your certificate w
 
 **Warning**: As it is used by the Yunohost app, do NOT rename or delete the script unless you know what you are doing.
 
+## Requirements
+
+Please refer to the [documentation of cryptography](https://cryptography.io/en/stable/installation/#building-cryptography-on-linux) python3 module for the software requirements.
+
+For instance, on Debian / Ubuntu, you will need the following:
+```bash
+apt install python3-venv libssl-dev libffi-dev python3-dev
+```
+
 ## Installation
 
 ```bash
 git clone https://github.com/neutrinet/renew_cert
 cd renew_cert
-virtualenv ve
+python3 -m venv ve
 source ve/bin/activate
 pip install -r requirements.txt
 ```

@@ -1,53 +1,60 @@
 # Neutrinet VPN Certificates renewer
 
-This repository store 2 python scripts to renew your Neutrinet VPN certificate.
-One as to be runned on an Internet Cube that has vpnclient installed, the other
-one is to be runned in a standalone fashion.
+This repository stores a python3 script to renew your Neutrinet VPN certificate.
 
-**Remark**: this repository is used by the [neutrinet_ynh](https://github.com/Neutrinet/neutrinet_ynh) app, so don't rename/delete it unless you know what you are doing.
+You can run this script from your own computer.
 
-# Usage
+You can also run this script from your internet cube.
+Note that there is a [Yunohost app called Neutrinet](https://github.com/Neutrinet/neutrinet_ynh) just for that. 
+It will setup a daily cron task that will automatically renew your certificate when needed.
 
-## Standalone version
+**Warning**: As it is used by the Yunohost app, do NOT rename or delete the script unless you know what you are doing.
 
-Installation:
+## Installation
 
-    git clone https://github.com/neutrinet/renew_cert
-    cd renew_cert
-    virtualenv ve
-    source ve/bin/activate
-    pip install -r requirements.txt
+```bash
+git clone https://github.com/neutrinet/renew_cert
+cd renew_cert
+virtualenv ve
+source ve/bin/activate
+pip install -r requirements.txt
+```
 
-Usage:
+## Usage
 
-    python renew_local.py <login> <password>
+```bash
+python3 renew.py <login>
+```
 
-This will generate the corresponding files in a folder names like that:
-`certs_2016-06-07_13:51:08` (where the date and time and the one corresponding
-to the moment at which you've runned the script).
+This will prompt you to enter your password for the Neutrinet's VPN.
 
-## On the Internet Cube version
+The script will then generate the certificate files in a folder named like that:  
+```
+certs_2016-06-07_13:51:08
+```
+where the date and time correspond to the moment at which you ran the script.
 
-**Except if you know what you are doing and has specific reasons to directly run this script, uses this YunoHost application instead https://github.com/Neutrinet/neutrinet_ynh/**
+You can also provide the folder with:
+```
+python3 renew.py <login> -d <path/to/your/certs>
+```
 
-The installation procedure on the cube is a bit different (**do everything in root or with sudo**):
+**Important**: This folder will contain your private key, so be careful when storing it!
 
-    git clone https://github.com/neutrinet/renew_cert
-    cd renew_cert
-    virtualenv ve --system-site-packages
-    source ve/bin/activate
-    pip install -r requirements.txt
+You can choose to directly provide the password with:
+```bash
+python3 renew.py <login> -p <password>
+```
 
-Usage:
+Finally, you can provide the public part of your certificate.
+The script will then check the expiration date before trying to renew it:
+```bash
+python3 renew.py <login> -c <path/to/client.crt>
+```
 
-    python renew_for_cube.py
+## Debugging
 
-**Be aware that this will modify your vpn configuration and certs files and
-restart openvpn (and the hotspot if it's installed).** It will also save your
-whole `/etc/openvpn/` in a `/etc/openvpn.old_2016-06-07_19:39:53` (where the
-date and time and the one corresponding to the moment at which you've runned
-the script) if you need to rollback.
-
-**If something wents wrong, you can lose your vpn connection, run that in a
-situation where you can access locally your cube in ssh** (or live the YOLO
-life style).
+You can display debug messages with:
+```bash
+python3 renew.py <login> -v
+```

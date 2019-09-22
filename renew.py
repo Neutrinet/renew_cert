@@ -1,96 +1,179 @@
-import os
-import json
-import zipfile
-import requests
-import time
+#!/usr/bin/python3
 
-from StringIO import StringIO
 from datetime import datetime
-from contextlib import contextmanager
+import io
+import json
+import logging
+import os
+import sys
+import time
+import zipfile
 
-from debug_context_manager import debug
+from OpenSSL import crypto
+import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
 
+def retry_session(
+    retries=3,
+    backoff_factor=0.3,
+    status_forcelist=(500, 502, 504),
+    session=None,
+):
+    """
+    See: https://www.peterbe.com/plog/best-practice-with-retries-with-requests
+    """
+    session = session or requests.Session()
+    
+    retry = Retry(
+        total=retries,
+        read=retries,
+        connect=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=status_forcelist,
+    )
+    
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    
+    return session
 
-@contextmanager
-def retry():
-    for i in range(3):
-        try:
-            yield
+def renew(login, password, client_cert_filename=None, working_dir=None, log_level=logging.INFO):
+    logging.basicConfig(stream=sys.stdout, level=log_level, format="%(levelname)s:%(message)s")
+    
+    if client_cert_filename and os.path.isfile(client_cert_filename):
+        logging.debug("Checking expiration date for {}".format(client_cert_filename))
+        with open(client_cert_filename, 'r') as ifd:
+            client_cert = ifd.read()
+        
+        if not check_expiration_date(client_cert):
+            logging.info("The certificate doesn't need to be renewed. Leaving...")
             return
-        except Exception as e:
-            print("Warning: exception '%s' occured, retrying" % e)
-            time.sleep(10)
-
-    print "After 3 retry, still failing :("
-    raise e
-
-
-def renew(login, password):
-    working_dir = "certs_%s" % datetime.today().strftime("%F_%X")
+    
+    if not working_dir:
+        working_dir = "certs_{:%Y-%m-%d_%H:%M:%S}".format(datetime.today())
     os.makedirs(working_dir)
+    
+    with retry_session() as session:
+        logging.debug("Sending client's credentials")
+        response = session.post("https://api.neutrinet.be/api/user/login", 
+            json={"user": login, "password": password})
+        response.raise_for_status()
+        
+        session_data = response.json()
+        session_header = {"Session": session_data["token"]}
 
-    s = requests.Session()
-
-    with debug("Login"):
-        with retry():
-            response = s.post("https://api.neutrinet.be/api/user/login", data=json.dumps({"user": login, "password": password}))
-        assert response.status_code == 200, response.content
-
-    session_data = response.json()
-
-    with debug("Get client data"):
-        with retry():
-            response = s.get('https://api.neutrinet.be/api/client/all?compose=true&user=%s' % session_data["user"], headers={"Session": session_data["token"]})
-        assert response.status_code == 200, response.content
-
-    client = response.json()[0]
-
-    openssl_config = """
-[ req ]
-prompt = no
-distinguished_name          = req_distinguished_name
-
-[ req_distinguished_name ]
-0.organizationName          = .
-organizationalUnitName      = .
-emailAddress                = %(login)s
-localityName                = .
-stateOrProvinceName         = .
-countryName                 = BE
-commonName                  = certificate for %(login)s
-""" % {"login": login}
-
-    open(os.path.join(working_dir, "config"), "w").write(openssl_config)
-
-    with debug("Generate new cert using openssl"):
-        assert os.system("cd '%s' && openssl req -out CSR.csr -new -newkey rsa:4096 -nodes -keyout client.key -config config" % working_dir) == 0
-
-    with debug("See if I already have a cert"):
-        with retry():
-            response = s.get("https://api.neutrinet.be/api/client/%s/cert/all?active=true" % client["id"], headers={"Session": session_data["token"]})
-        assert response.status_code == 200, response.content
-
-    cert = response.json()[0] if response.json() else None
-
-    if not cert:
-        print("I don't have any cert, let's add a new one")
-        with debug("Put new cert online"):
-            with retry():
-                response = s.put("https://api.neutrinet.be/api/client/%s/cert/new?rekey=false&validityTerm=1" % client["id"], headers={"Session": session_data["token"]}, data=open(os.path.join(working_dir, "CSR.csr"), "r").read())
-            assert response.status_code == 200, response.content
+        logging.debug("Retrieving client data")
+        response = session.get('https://api.neutrinet.be/api/client/all?compose=true',
+            params={"user": session_data["user"]},
+            headers=session_header)
+        response.raise_for_status()
+        client = response.json()[0]
+        
+        
+        logging.debug("Generating new certificate using OpenSSL")
+        csr, client_key = create_csr(login)
+        
+        with open(os.path.join(working_dir, "CSR.csr"), 'wb') as ofd:
+            ofd.write(csr)
+        
+        with open(os.path.join(working_dir, "client.key"), 'wb') as ofd:
+            ofd.write(client_key)
+        
+        logging.debug("Checking if a certificate is already present")
+        response = session.get("https://api.neutrinet.be/api/client/{id}/cert/all".format(id=client["id"]), 
+            headers=session_header,
+            params={ "active" : "true" })
+        response.raise_for_status()
+        cert = response.json()[0] if response.json() else None
+        
+        if not cert:
+            logging.info("We don't have any certificate, let's add a new one")
+            logging.debug("Uploading new certificate")
+            response = session.put("https://api.neutrinet.be/api/client/{id}/cert/new".format(id=client["id"]),
+                headers=session_header, 
+                data=csr,
+                params={ "rekey": "false", "validityTerm": 1 })
+            response.raise_for_status()
             cert = response.json()
-    else:
-        print("I already have a cert, let's update it")
-        with debug("Put new cert online"):
-            with retry():
-                response = s.put("https://api.neutrinet.be/api/client/%s/cert/%s?rekey=true&validityTerm=1" % (client["id"], cert["id"]), headers={"Session": session_data["token"]}, data=open(os.path.join(working_dir, "CSR.csr"), "r").read())
+        else:
+            logging.info("We already have a certificate, let's update it")
+            logging.debug("Uploading new certificate")
+            response = session.put("https://api.neutrinet.be/api/client/{client[id]}/cert/{cert[id]}".format(client=client, cert=cert),
+                headers=session_header,
+                data=csr,
+                params={ "rekey": "true", "validityTerm": 1 })
+            response.raise_for_status()
 
-    with debug("Download new config"):
-        with retry():
-            response = s.post("https://api.neutrinet.be/api/client/%s/config" % client["id"], headers={"Session": session_data["token"]}, data=json.dumps({"platform":"linux"}))
-        assert response.status_code == 200, response.content
-
-    with debug("Extract config from zipfile"):
-        zipfile.ZipFile(StringIO(response.content)).extractall(working_dir)
+        logging.debug("Downloading new config")
+        response = session.post("https://api.neutrinet.be/api/client/{id}/config".format(id=client["id"]),
+            headers=session_header, json={"platform":"linux"})
+        response.raise_for_status()
+            
+        logging.debug("Unzipping config")
+        zipfile.ZipFile(io.BytesIO(response.content)).extractall(working_dir)
 
     return working_dir
+
+def check_expiration_date(cert):
+    x509 = crypto.load_certificate(crypto.FILETYPE_PEM, cert)
+    timestamp = x509.get_notAfter().decode()
+    
+    expiration_date = datetime.strptime(timestamp, "%Y%m%d%H%M%SZ")
+    delta = (expiration_date - datetime.now())
+    
+    return delta.days < 31
+
+def create_csr(email):
+    key = crypto.PKey()
+    key.generate_key(crypto.TYPE_RSA, 4096)
+    
+    req = crypto.X509Req()
+    req_subject = req.get_subject()
+    
+    req_subject.C = "BE"
+    req_subject.CN = email
+    req_subject.emailAddress = email
+    
+    req.set_pubkey(key)
+    req.sign(key, "sha256")
+    
+    private_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, key)
+    csr = crypto.dump_certificate_request(crypto.FILETYPE_PEM, req)
+    
+    return csr, private_key
+
+def main():
+    import argparse
+    from getpass import getpass
+    
+    parser = argparse.ArgumentParser(description="Renew certificates for the Neutrinet VPN.")
+    parser.add_argument("login",
+        help="User login for the Neutrinet VPN.")
+    parser.add_argument("-p", "--password",
+        help="User password for the Neutrinet VPN.")
+    parser.add_argument("-v", "--verbose", action="store_true",
+        help="Increase verbosity and display debug messages.")
+    parser.add_argument("-c", "--cert",
+        help="Public part of the client certificate. \
+        This forces the script to check if the certificate is expired before renewing it.")
+    parser.add_argument("-d", "--directory",
+        help="Output directory where to store the newly generated certificates. \
+        By default, everything is stored in a randomly generated directory.")
+    args = parser.parse_args()
+    
+    if not args.password:
+        args.password = getpass()
+    
+    if args.verbose:
+        log_level = logging.DEBUG
+    else:
+        log_level = logging.INFO
+    
+    renew(args.login, args.password, client_cert_filename=args.cert, 
+        working_dir=args.directory, log_level=log_level)
+
+if __name__ == "__main__":
+    main()
+    

@@ -1,3 +1,2 @@
 requests
-pexpect
-debug_context_manager
+pyopenssl
